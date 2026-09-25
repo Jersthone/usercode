@@ -29,4 +29,9 @@ class User extends Authenticatable
             'password' => 'hashed',
         ];
     }
+
+    public function historialEstados()
+    {
+        return $this->hasMany(HistorialEstadoPedido::class);
+    }
 }
