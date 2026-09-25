@@ -12,6 +12,12 @@ class Producto extends Model
         'nombre',
         'precio',
         'categoria_id',
+        'stock',
+    ];
+
+    protected $casts = [
+        'precio' => 'decimal:2',
+        'stock' => 'integer',
     ];
 
     public function categoria()

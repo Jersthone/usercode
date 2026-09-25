@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\CategoriaController;
+use App\Http\Controllers\PedidoController;
 use Illuminate\Support\Facades\Route;
 
 // Route::get('/', function () {
@@ -9,3 +10,4 @@ use Illuminate\Support\Facades\Route;
 
 Route::post('/categorias', [CategoriaController::class, 'store']);
 Route::get('/categorias', [CategoriaController::class, 'index']);
+Route::post('/pedidos', [PedidoController::class, 'store']);

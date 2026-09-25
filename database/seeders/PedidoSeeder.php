@@ -52,6 +52,8 @@ class PedidoSeeder extends Seeder
                 'cantidad' => $linea['cantidad'],
                 'precio_unitario' => $linea['producto']->precio,
             ]);
+
+            $linea['producto']->decrement('stock', $linea['cantidad']);
         }
 
         $pedido->timestamps = false;
@@ -97,12 +99,12 @@ class PedidoSeeder extends Seeder
 
         $agua = Producto::query()->firstOrCreate(
             ['nombre' => 'Agua mineral 500 cc'],
-            ['precio' => 890, 'categoria_id' => $bebidas->id],
+            ['precio' => 890, 'categoria_id' => $bebidas->id, 'stock' => 100],
         );
 
         $aceite = Producto::query()->firstOrCreate(
             ['nombre' => 'Aceite vegetal 1 L'],
-            ['precio' => 2490, 'categoria_id' => $abarrotes->id],
+            ['precio' => 2490, 'categoria_id' => $abarrotes->id, 'stock' => 100],
         );
 
         return [
