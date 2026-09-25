@@ -15,6 +15,61 @@ use Illuminate\Support\Facades\DB;
 class PedidoService
 {
     /**
+     * Actualiza el estado actual y agrega una fila de historial con el usuario y la fecha.
+     *
+     * @param  array<string, mixed>  $datos
+     *
+     * @throws Exception
+     */
+    public function cambiarEstado(int $pedidoId, array $datos, int $userId): Pedido
+    {
+        return DB::transaction(function () use ($pedidoId, $datos, $userId) {
+            $pedido = Pedido::query()->with('estado')->lockForUpdate()->find($pedidoId);
+
+            if (! $pedido) {
+                throw new Exception('El pedido indicado no existe.', 404);
+            }
+
+            $estadoNuevo = Estado::query()->find($datos['estado_id']);
+
+            if (! $estadoNuevo) {
+                throw new Exception('El estado indicado no existe.', 404);
+            }
+
+            $estadoActual = $pedido->estado->nombre;
+
+            if ($estadoActual === $estadoNuevo->nombre) {
+                throw new Exception('El pedido ya está en estado '.$estadoActual.'.', 409);
+            }
+
+            if (! $this->transicionPermitida($estadoActual, $estadoNuevo->nombre)) {
+                throw new Exception('No se puede pasar el pedido de '.$estadoActual.' a '.$estadoNuevo->nombre.'.', 409);
+            }
+
+            if ($estadoNuevo->nombre === 'anulado') {
+                $this->devolverStock($pedido);
+            }
+
+            $pedido->update([
+                'estado_id' => $estadoNuevo->id,
+            ]);
+
+            HistorialEstadoPedido::query()->create([
+                'pedido_id' => $pedido->id,
+                'estado_id' => $estadoNuevo->id,
+                'user_id' => $userId,
+                'observacion' => filled($datos['observacion'] ?? null) ? $datos['observacion'] : null,
+            ]);
+
+            return $pedido->fresh()->load([
+                'estado',
+                'historial.user',
+                'historial.estado',
+            ]);
+        });
+    }
+
+    /**
      * Crea un pedido en pendiente, congela el precio de cada línea y descuenta el stock.
      * Si algún producto no alcanza, la transacción no guarda nada.
      *
@@ -104,6 +159,41 @@ class PedidoService
                 'historial.estado',
             ]);
         });
+    }
+
+    private function transicionPermitida(string $actual, string $nuevo): bool
+    {
+        $permitidas = [
+            'pendiente' => ['pagado', 'anulado'],
+            'pagado' => ['despachado', 'anulado'],
+            'despachado' => ['entregado', 'anulado'],
+            'entregado' => [],
+            'anulado' => [],
+        ];
+
+        return in_array($nuevo, $permitidas[$actual] ?? [], true);
+    }
+
+    private function devolverStock(Pedido $pedido): void
+    {
+        $detalles = $pedido->detalles()->orderBy('producto_id')->get();
+
+        $productos = Producto::query()
+            ->whereIn('id', $detalles->pluck('producto_id'))
+            ->orderBy('id')
+            ->lockForUpdate()
+            ->get()
+            ->keyBy('id');
+
+        foreach ($detalles as $detalle) {
+            $producto = $productos->get($detalle->producto_id);
+
+            if (! $producto) {
+                throw new Exception('No existe el producto con id '.$detalle->producto_id.'.', 404);
+            }
+
+            $producto->increment('stock', $detalle->cantidad);
+        }
     }
 
     /**

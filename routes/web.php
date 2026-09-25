@@ -11,3 +11,4 @@ use Illuminate\Support\Facades\Route;
 Route::post('/categorias', [CategoriaController::class, 'store']);
 Route::get('/categorias', [CategoriaController::class, 'index']);
 Route::post('/pedidos', [PedidoController::class, 'store']);
+Route::patch('/pedidos/{pedido}/estado', [PedidoController::class, 'cambiarEstado']);
