@@ -35,6 +35,6 @@ class Pedido extends Model
 
     public function historial()
     {
-        return $this->hasMany(HistorialEstadoPedido::class)->orderBy('created_at');
+        return $this->hasMany(HistorialEstadoPedido::class)->orderBy('created_at')->orderBy('id');
     }
 }

@@ -17,6 +17,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'categorias',
             'productos',
             'pedidos',
+            'pedidos/*',
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

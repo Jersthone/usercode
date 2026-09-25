@@ -38,14 +38,10 @@ class PedidoController extends Controller
             'detalles.*.cantidad.min' => 'La cantidad debe ser mayor a cero.',
         ]);
 
-        // Sin login en el API, el pendiente queda a nombre del usuario autenticado o del primero existente.
-        $usuario = $request->user() ?? User::query()->orderBy('id')->first();
+        $usuario = $this->usuarioResponsable($request);
 
         if (! $usuario) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'No hay un usuario para registrar quién crea el pedido.',
-            ], 500);
+            return $this->sinUsuario();
         }
 
         try {
@@ -57,16 +53,66 @@ class PedidoController extends Controller
                 'data' => $pedido,
             ], 201);
         } catch (Exception $e) {
-            $codigo = (int) $e->getCode();
+            return $this->respuestaDeError($e);
+        }
+    }
 
-            if ($codigo < 400 || $codigo > 599) {
-                throw $e;
-            }
+    public function cambiarEstado(Request $request, int $pedido): JsonResponse
+    {
+        $datos = $request->validate([
+            'estado_id' => ['required', 'integer'],
+            'observacion' => ['sometimes', 'nullable', 'string', 'max:500'],
+        ], [
+            'estado_id.required' => 'El estado es obligatorio.',
+            'estado_id.integer' => 'El estado debe ser un número.',
+            'observacion.string' => 'La observación debe ser un texto.',
+            'observacion.max' => 'La observación no puede superar los 500 caracteres.',
+        ]);
+
+        $usuario = $this->usuarioResponsable($request);
+
+        if (! $usuario) {
+            return $this->sinUsuario();
+        }
+
+        try {
+            $pedidoActualizado = $this->pedidoService->cambiarEstado($pedido, $datos, $usuario->id);
 
             return response()->json([
-                'status' => 'error',
-                'message' => $e->getMessage(),
-            ], $codigo);
+                'status' => 'success',
+                'message' => 'El estado del pedido se actualizó correctamente.',
+                'data' => $pedidoActualizado,
+            ]);
+        } catch (Exception $e) {
+            return $this->respuestaDeError($e);
         }
+    }
+
+    private function usuarioResponsable(Request $request): ?User
+    {
+        // Sin login en el API, el cambio queda a nombre del usuario autenticado o del primero existente.
+        return $request->user() ?? User::query()->orderBy('id')->first();
+    }
+
+    private function sinUsuario(): JsonResponse
+    {
+        return response()->json([
+            'status' => 'error',
+            'message' => 'No hay un usuario para registrar quién hace el cambio.',
+        ], 500);
+    }
+
+    private function respuestaDeError(Exception $e): JsonResponse
+    {
+        $codigo = (int) $e->getCode();
+
+        if ($codigo < 400 || $codigo > 599) {
+            throw $e;
+        }
+
+        return response()->json([
+            'status' => 'error',
+            'message' => $e->getMessage(),
+        ], $codigo);
     }
 }
